@@ -1,0 +1,15 @@
+pandas
+numpy
+psycopg2-binary
+python-dotenv
+polars
+openpyxl
+apache-airflow-providers-postgres
+apache-airflow-providers-odbc
+adbc_driver_manager
+adbc-driver-postgresql
+requests
+selenium
+webdriver-manager
+connectorx
+pendulum
