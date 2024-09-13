@@ -8,10 +8,15 @@ import sys, os
 
 # import psycopg2
 from dotenv import load_dotenv
+import pandas as pd
+import numpy as np
+import polars as pl
+import psycopg2
 
 load_dotenv()
 fpath = os.getenv('FUNC_PATH')
 email = os.getenv('EMAIL')
+uri = os.getenv('URI')
 
 sys.path.append(fpath)
 
@@ -24,14 +29,14 @@ default_args = {
     # 'email': 'airflow@example.com',
     # 'email_on_failure': True,
     # 'email_on_retry': False,
-    # 'retries': 3,
+    # 'retries': 0,
     # 'retry_delay': timedelta(minutes=5),
     # 'retry_exponential_backoff': False,
     # 'max_retry_delay': timedelta(hours=1),
-    # 'start_date': days_ago(1),
+    'start_date': days_ago(1),
     # 'end_date': datetime(2024, 12, 31),
     'schedule_interval': None,
-    'tags': ['did','test']
+    # 'tags': ['did','test']
     # 'catchup': False,
     # 'sla': timedelta(hours=2),
     # 'execution_timeout': timedelta(minutes=30),
@@ -41,35 +46,115 @@ default_args = {
     # 'trigger_rule': 'all_success',
     # 'pool': 'default_pool'
 }
-file = 'for_level_dictionary.xlsx'
+raw = 'for_level_dictionary.xlsx'
+meta = 'metadata.xlsx'
+file = '{fpath}/{name}'
 
 # bangkok_zone = datetime.now(tz=timezone(timedelta(hours=7)))
 
 @dag(dag_id='did-ovv-test',
-    # tags=['did','test'],
-    start_date=days_ago(1),
+    tags=['did','test'],
+    # start_date=days_ago(1),
     # schedule=None
     default_args=default_args
     )
 def did_dag():
 
-    # emp = EmptyOperator(task_id='emp1')
-    @task(task_id='create-df')
-    def emp(file):
-        df = create_df(file)
+    @task(task_id='create-new-df')
+    def create_df_task(file):
+        # cleaning processing included
+        return create_df(file)
 
-        return df.iloc[2,3]
+    @task_group(group_id='get-meta-part')
+    def meta_part(df, uri):
+
+        @task(task_id='read-previous-meta', trigger_rule='all_success')
+        def read_pre_meta(uri):
+
+            premeta = pl.read_database_uri(query='select * from metadata',uri=uri)
+
+            return premeta.to_pandas()
+        
+        @task(task_id='current-meta', trigger_rule='all_success')
+        def current_meta(df):
+            # no check condition
+            return create_meta(df)
+        
+        @task(task_id='check-new-app', trigger_rule='all_success')
+        def task_check_new_app(pre,cur):
+            # columns mismatch checking included
+            return check_new_app(pre, cur)
+
+        pre_meta = read_pre_meta(uri)
+        cur_meta = current_meta(df)
+        all_new = task_check_new_app(pre_meta, cur_meta)
+
+        [pre_meta, cur_meta] >> all_new
+
     
-    df = PythonOperator(task_id='df',
-                        python_callable=create_df,
-                        op_kwargs={'file':f'{os.getcwd()}/external/{file}'})
-    @task
-    def get():
-        return os.getcwd()
+    @task(task_id='write-meta', trigger_rule='all_success')
+    def write_meta(df):
+        pldf = pl.from_pandas(df)
+        pldf.write_database(table_name='metadata', connection=uri, if_table_exists='append') 
+
+    @task.branch(task_id='branch-write-db')
+    def branch_write_meta(all_new):
+        if len(all_new) == 0:
+            return 'number-part'
+        else:
+            return 'write-meta'
+
+    @task_group(group_id='number-part')
+    def number_part(df, uri):
+
+        @task(task_id='read-previous-num', trigger_rule='all_done')
+        def read_pre_num(uri):
+
+            prenum = pl.read_database_uri(query='select * from number',uri=uri)
+
+            return prenum.to_pandas()
+        
+        @task(task_id='get-new-month-name', trigger_rule='all_success')
+        def task_detect_new_month(old, new):
+            # return list of all new month columns added
+            return detect_new_month(old, new)
+
+
+        @task(task_id='get-number-new', trigger_rule='all_success')
+        def task_split_new(df, new_month):
+            # no check condition
+            # drop row amount is zero
+            return split_new(df, new_month)
+        
+            
+        @task(task_id='group-by-sum', trigger_rule='all_success')
+        def task_group_by_sum(pre_num, cur_num):
+            # concat new month to previous df
+            return group_by_sum(pre_num, cur_num)
+        
+        pre_num = read_pre_num(uri)
+        new_month = task_detect_new_month(pre_num, df)
+        cur_num = task_split_new(pre_num, new_month)
+        group = task_group_by_sum(pre_num, cur_num)
+
+        pre_num >> new_month >> cur_num >> group
+
+        return group
     
-    # emp(f'{os.getcwd()}/external/{file}') #>> create_df("for_level_dictionary.xlsx")
-    # get()
-    df
+    @task(task_id='write-number', trigger_rule='all_success')
+    def write_number(df):
+
+        pldf = pl.from_pandas(df)
+        pldf.write_database(table_name='number', connection=uri, if_table_exists='replace')
+    
+    df = create_df_task(file.format(fpath=fpath, name=raw))
+
+    all_new_app = meta_part(df, uri)
+    num_group = number_part(df, uri)
+
+    df >> all_new_app >> write_meta(all_new_app) >> num_group >> write_number(num_group)
+    # write_meta(all_new) >> num >> task_group_by_sum(num)
+
 did_dag()
 
 
