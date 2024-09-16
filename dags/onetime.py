@@ -71,9 +71,10 @@ def onetime():
     @task(task_id='write_number')
     def write_num(df, uri):
         pldf = pl.from_pandas(df)
-        pldf.write_database(table_name='number',
+        pldf.write_database(table_name='number_of_users',
                             connection=uri,
-                            if_table_exists='replace')
+                            if_table_exists='replace'
+                            )
 
 
 
