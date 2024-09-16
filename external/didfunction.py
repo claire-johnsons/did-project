@@ -75,7 +75,7 @@ def check_new_app(meta, df):
     dfapp = df[['hash_app','รหัสแอพ']].values.tolist()
 
     # new_df_meta = create_meta(df)
-    all_new = pd.DataFrame([], columns=df.columns)
+    all_new = pd.DataFrame([], columns=meta.columns)
 
     for app in dfapp:
         if app not in metaapp:
@@ -93,8 +93,11 @@ def detect_new_month(old_num, df):
     for m in new_m:
         if m not in old_m:
             new_month.append(m)
+
+    if new_month == []:
+        return False
     
-    return new_month
+    return new_month, df
     
 
 def split_new(df,new_month):
