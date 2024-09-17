@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 import polars as pl
 import os, sys, hashlib, logging
+from string import punctuation
+
 
 
 def create_df(file:str):
@@ -28,21 +30,26 @@ def create_df(file:str):
     
     # the names to str 
     for col in df.iloc[:1,:7].columns.tolist():
-        df[col] = df[col].astype(str)
+        if df[col].dtypes == float:
+            df[col] = df[col].astype(int)
+            df[col] = df[col].astype(str)
+        else:
+            df[col] = df[col].astype(str)
 
         try:
             df[col] = df[col].strip('\t')
         except:
             continue
 
-    if df.loc[3,'ระดับกระทรวง']== 'กระทรวงกระทรวงคมนาคม':
-        df.at[3,'ระดับกระทรวง'] = 'กระทรวงคมนาคม'
-    if df.loc[55,'ระดับกรม'] == '-':
-        df.at[55,'ระดับกรม'] = 'กรุงเทพมหานคร'
+    # if df.loc[3,'ระดับกระทรวง']== 'กระทรวงกระทรวงคมนาคม':
+    #     df.at[3,'ระดับกระทรวง'] = 'กระทรวงคมนาคม'
+    # if df.loc[55,'ระดับกรม'] == '-':
+    #     df.at[55,'ระดับกรม'] = 'กรุงเทพมหานคร'
 
     df['hash_app'] = df['ชื่อแอพ'].str.encode(encoding='utf-8')
     df['hash_app'] = df['hash_app'].apply(lambda x:hashlib.sha256(x).hexdigest())
     df = df.set_index('hash_app').reset_index()
+
     # after the names are all str astype amount from float to int
     col_num = df.select_dtypes(float).columns
     df[col_num] = df[col_num].astype(int)
@@ -53,6 +60,11 @@ def create_meta(df):
     
     df = df.select_dtypes(exclude = 'number')
     df = df.drop_duplicates()
+    for i in df:
+        for j in df[i].index:
+            if df.loc[j,i] in list(punctuation)+[' ',None]:
+                df.at[j,i] = '-'
+
     df = df.set_index('hash_app').reset_index()
 
     return df
@@ -95,14 +107,14 @@ def detect_new_month(old_num, df):
             new_month.append(m)
 
     if new_month == []:
-        return False
+        raise 'no new month'
     
-    return new_month, df
+    return new_month
     
 
-def split_new(df,new_month):
+def split_new(df, new_month):
 
-    df = pd.DataFrame(df.set_index(['hash_app','รหัสแอพ']).iloc[:,new_month])
+    df = pd.DataFrame(df.set_index(['hash_app','รหัสแอพ']).loc[:,new_month])
     df = pd.DataFrame(df.stack())
     
     df.index.names = ['hash_app','app_code','month']
@@ -113,6 +125,8 @@ def split_new(df,new_month):
     
     return df.reset_index()
 
+
+
 def group_by_sum(old_split, df):
 
     old_split = pd.concat([old_split,df], axis = 0)
@@ -122,10 +136,6 @@ def group_by_sum(old_split, df):
 
     return old_split
 
-'''
-def write_db(df):
-    pass
-'''
 
 
 if __name__ == "__main__":

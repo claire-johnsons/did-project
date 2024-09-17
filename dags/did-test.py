@@ -46,7 +46,7 @@ default_args = {
     # 'trigger_rule': 'all_success',
     # 'pool': 'default_pool'
 }
-raw = 'for_level_dictionary.xlsx'
+raw = 'app_25042567-16092567.xlsx'
 # meta = 'metadata.xlsx'
 file = '{fpath}/{name}'
 
@@ -117,20 +117,25 @@ def did_dag():
         # drop row amount is zero
         return split_new(df, new_month)
     
-        
+
+    '''   
     @task(task_id='group-by-sum', trigger_rule='all_success')
     def task_group_by_sum(pre_num, cur_num):
         # concat new month to previous df
         return group_by_sum(pre_num, cur_num)
-    
+    '''
     
     @task(task_id='write-number', trigger_rule='all_success')
     def write_number(df):
 
         pldf = pl.from_pandas(df)
-        pldf.write_database(table_name='number', connection=uri, if_table_exists='replace')
+        pldf.write_database(table_name='number', connection=uri, if_table_exists='append')
     
     df = create_df_task(file.format(fpath=fpath, name=raw))
+
+    @task(task_id='lets_go')
+    def pull(df):
+        print(df)
 
     pre_meta = read_pre_meta(uri)
     cur_meta = current_meta(df)
@@ -140,20 +145,11 @@ def did_dag():
     # ---------------------------
     pre_num = read_pre_num(uri)
     new_month = task_detect_new_month(pre_num, df)
-    # cur_num = task_split_new(new_month[1], new_month[0])
+    cur_num = task_split_new(df, new_month)
     # group = task_group_by_sum(pre_num, cur_num)
-    # w_num = write_number(group)
+    # w_num = write_number(cur_num)
 
     df >> [pre_meta, cur_meta] >> all_new #>> w_meta
-    [df, pre_num] >> new_month #>> cur_num >> group #>> w_num
+    [df, pre_num] >> new_month >> cur_num #>> w_num
 
 did_dag()
-
-
-
-
-
-
-
-
-
