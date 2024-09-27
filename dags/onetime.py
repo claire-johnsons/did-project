@@ -23,7 +23,7 @@ file = '{fpath}{name}'
 
 @dag(dag_id='one_time',
      start_date=days_ago(1),
-     tags=['did','test'],
+     tags=['did'],
      schedule=None)
 def onetime():
 
@@ -47,6 +47,7 @@ def onetime():
                             connection=uri,
                             if_table_exists='replace')
         
+    # คล้ายกับฟังก์ชันที่ใช้ใน pipeline แต่จะเอามาทุกคอลัมน์ไม่ใช่เฉพาะใหม่
     @task(task_id='split_number')
     def split_num(df):
 
@@ -56,6 +57,7 @@ def onetime():
 
         df = df.set_index(['hash_app','รหัสแอพ'])
         df = df.select_dtypes(include='number')
+        df = df.drop(columns='ทั้งหมด')
         df = pd.DataFrame(df.stack())
         df.index.names = ['hash_app','app_code','month']
         df = df.rename(columns={0:'number'})

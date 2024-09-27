@@ -72,7 +72,7 @@ def did_dag():
 
         return premeta.to_pandas()
     
-    @task(task_id='current-meta', trigger_rule='all_success')
+    @task(task_id='create-current-meta', trigger_rule='all_success')
     def current_meta(df):
         # no check condition
         return create_meta(df)
@@ -87,13 +87,6 @@ def did_dag():
     def write_meta(df):
         pldf = pl.from_pandas(df)
         pldf.write_database(table_name='metadata', connection=uri, if_table_exists='append')
-
-    # @task.branch(task_id='branch-write-db')
-    # def branch_write_meta(all_new):
-    #     if len(all_new) == 0:
-    #         return 'number-part'
-    #     else:
-    #         return 'write-meta'
 
 # --------------------------------------
 
@@ -111,7 +104,7 @@ def did_dag():
         return detect_new_month(old, df)
 
 
-    @task(task_id='get-number-new', trigger_rule='all_success')
+    @task(task_id='create-current-number', trigger_rule='all_success')
     def task_split_new(df, new_month):
         # no check condition
         # drop row amount is zero
@@ -131,25 +124,29 @@ def did_dag():
         pldf = pl.from_pandas(df)
         pldf.write_database(table_name='number', connection=uri, if_table_exists='append')
     
+
+    # @task(task_id='write-metadata')
+    # def wr_meta(df):
+    #     df.to_excel('external/newapp.xlsx',index=False)
+
+    # @task(task_id='write-number')
+    # def wr_num(df):
+    #     df.to_excel('external/newnum.xlsx',index=False)
+
     df = create_df_task(file.format(fpath=fpath, name=raw))
-
-    @task(task_id='lets_go')
-    def pull(df):
-        print(df)
-
     pre_meta = read_pre_meta(uri)
     cur_meta = current_meta(df)
     all_new = task_check_new_app(pre_meta, cur_meta)
-    # w_meta = write_meta(all_new)
+    w_meta = write_meta(all_new)
 
     # ---------------------------
     pre_num = read_pre_num(uri)
     new_month = task_detect_new_month(pre_num, df)
     cur_num = task_split_new(df, new_month)
     # group = task_group_by_sum(pre_num, cur_num)
-    # w_num = write_number(cur_num)
+    w_num = write_number(cur_num)
 
-    df >> [pre_meta, cur_meta] >> all_new #>> w_meta
-    [df, pre_num] >> new_month >> cur_num #>> w_num
+    [pre_meta, df] >> cur_meta >> all_new >> w_meta
+    [pre_num, df] >> new_month >> cur_num >> w_num
 
 did_dag()

@@ -1,0 +1,25 @@
+eng version in case cannot encode TH language
+
+problem:
+	- desire the values in column "month" to be collected as date data type (format is m/yyyy)
+	solution?:
+		- add a random day's number to make the format correct
+		- split month and year but there's a 'month' has day's number in it	
+	
+	- have no idea how data is actually collected cause there's a column name has day's number(d/m/yyyy)
+	which the others don't (m/yyyy)
+	
+	- pipeline doesn't have schedule yet due to uncertainty of data collecting (maybe and no extraction)
+
+key takeaway:
+	- .env isn't in the docker volume (if is edited, it need to be compose down and up again)
+
+	- pipeline write to database only new apps and the numbers of new month(s) only. Will have a problem if
+	there are data collecting retrospectively
+
+	- there are to_excel function in did-test.py to write the result out, in case want to check before
+	write_database
+
+	- external is the directory for docker volume
+
+	- .gitignore is a list of files that are not used except .env and raw data files
