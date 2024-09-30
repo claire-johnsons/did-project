@@ -1,3 +1,13 @@
+'''
+this file can be run only in airflow,
+due to the vm cannot install some latest library
+
+this dag script is designed to work with for_level_dictionary.xlsx
+for manipulating this really first did-raw data I got, then writing it to
+postgresql 
+
+'''
+
 from airflow.decorators import dag, task, task_group
 from airflow.utils.dates import days_ago
 from airflow.utils import timezone
@@ -62,9 +72,12 @@ def onetime():
         df.index.names = ['hash_app','app_code','month']
         df = df.rename(columns={0:'number'})
 
+        # โค้ด 2 แถวนี้ใช้ drop แถวที่มีจำนวนเป็น 0
         zero = df[df['number']==0].index
         df = df.drop(index=zero)
+
         df = df.reset_index()
+
         # df['month'] = pd.to_datetime(df['month'], format='%m/%Y')
         # df = df.sort_index(level=0)
 

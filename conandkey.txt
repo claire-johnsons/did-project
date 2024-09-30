@@ -1,25 +1,28 @@
-eng version in case cannot encode TH language
+ปัญหา:
+    - ต้องการเก็บเดือนเป็น date แต่ทำไม่ได้
+    วิธีแก้?:    
+        - เพิ่มเลขวันไปเพื่อให้ฟังก์ชันจับformat ได้ แต่ก็มีเดือนที่มีเลขวันอยู่อันนึง
+        - แบ่งเป็นคอลัมน์เดือนกับปี
+        
+    -ไม่รู้ว่า data เก็บยังไงเพราะมีคอลัมน์ที่มีเลขเดือนอันหนึ่ง แต่อันอื่นไม่มี
+    
+    - pipeline ยังไม่มี schedule เก็บยังไงเพราะมีคอลัมน์ที่มีเลขเดือนอันหนึ่ง
+    
+ประเด็นสำคัญ:
+    - .env ไม่ได้อยู่ใน volume docker ถ้าแก้ไขต้อง compose down แล้ว up ใหม่
 
-problem:
-	- desire the values in column "month" to be collected as date data type (format is m/yyyy)
-	solution?:
-		- add a random day's number to make the format correct
-		- split month and year but there's a 'month' has day's number in it	
-	
-	- have no idea how data is actually collected cause there's a column name has day's number(d/m/yyyy)
-	which the others don't (m/yyyy)
-	
-	- pipeline doesn't have schedule yet due to uncertainty of data collecting (maybe and no extraction)
+    - pipeline เขียนเข้า database เฉพาะ แอปใหม่กับ ตัวเลขของเดือนใหม่
+    ถ้ามีตัวเลขของเดือนเก่าที่เก็บย้อนหลังมากับไฟล์ใหม่จะมีปัญหา
 
-key takeaway:
-	- .env isn't in the docker volume (if is edited, it need to be compose down and up again)
+    - มีฟังก์ชัน to_excel ไว้ใน did-test.py ในกรณีที่ต้องการเขียนออกมาเป็นไฟล์
+    เอามาเช็กก่อนเขียนขึ้น db จริง
+    
+    - external คือโฟลเดอร์ที่เอาไว้ใช้กับ docker volume
+    
+    - .gitignore คือลิสต์ของไฟล์ที่ไม่ได้ใช้(เอาไว้test ต่างๆ) ยกเว้น .env
+    กับพวกไฟล์ข้อมูลดิบ
 
-	- pipeline write to database only new apps and the numbers of new month(s) only. Will have a problem if
-	there are data collecting retrospectively
+    - git config --global user.name/email ยังเป็น claire อยู่
 
-	- there are to_excel function in did-test.py to write the result out, in case want to check before
-	write_database
-
-	- external is the directory for docker volume
-
-	- .gitignore is a list of files that are not used except .env and raw data files
+    - didfunction.py, ในฟังก์ชัน split_new() มีโค้ดส่วนที่ drop แถวที่มีจำนวนเป็น 0 ถ้าไม่ต้องการ drop
+    comment โค้ดเอาไว้ได้ (comment ไว้แล้วว่าเป็นส่วนไหน) ใน onetime.py ก็มีเหมือนกันชื่อ split_num
